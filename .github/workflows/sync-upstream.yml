@@ -1,0 +1,80 @@
+name: Sync Upstream
+
+on:
+  schedule:
+    # Run every 6 hours
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run (no push)'
+        required: false
+        default: 'false'
+        type: boolean
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    name: Sync with upstream
+    runs-on: ubuntu-latest
+    outputs:
+      has_changes: ${{ steps.sync.outputs.has_changes }}
+
+    steps:
+      - name: Checkout FreeOS
+        uses: actions/checkout@v4
+        with:
+          ref: master
+          fetch-depth: 0
+          submodules: true
+
+      - name: Configure Git
+        run: |
+          git config user.name "FreeOS Sync Bot"
+          git config user.email "freeos-sync-bot@users.noreply.github.com"
+          git config core.protectNTFS false
+
+      - name: Add upstream remote
+        run: |
+          git remote add upstream-cachyos https://github.com/CachyOS/linux-cachyos.git
+          git fetch upstream-cachyos master
+
+      - name: Run sync script
+        id: sync
+        env:
+          DRY_RUN: ${{ inputs.dry_run || 'false' }}
+          GITHUB_OUTPUT: $GITHUB_OUTPUT
+        run: |
+          chmod +x sync-upstream.sh
+          bash sync-upstream.sh
+
+      - name: Push updates
+        if: steps.sync.outputs.has_changes == '1'
+        run: |
+          if [ "${{ inputs.dry_run }}" != "true" ]; then
+            git push origin master
+            echo "Pushed upstream sync updates."
+          else
+            echo "DRY RUN: skipping push."
+            git log --oneline -5
+          fi
+
+  notify:
+    name: Notify on failure
+    needs: sync
+    if: failure()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create issue on failure
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: 'Upstream sync failed',
+              body: `The scheduled upstream sync workflow failed. Check the [workflow run](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}) for details.`,
+              labels: ['sync-failure', 'automated']
+            })
