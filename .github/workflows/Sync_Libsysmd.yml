@@ -38,7 +38,7 @@ jobs:
       - name: Add upstream remote
         run: |
           git remote add upstream-liberated-systemd https://github.com/Jeffrey-Sardina/liberated-systemd
-          git fetch upstream-liberated-systemd master
+          git fetch upstream-liberated-systemd main
       - name: Run sync script
         id: sync
         env:
