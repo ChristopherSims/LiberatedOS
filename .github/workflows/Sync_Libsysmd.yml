@@ -3,7 +3,7 @@ name: Sync SysMD
 on:
   schedule:
     # Run every Sunday at 11 PM UTC
-    - cron: '0 23 * * 0'
+    - cron: '0 22 * * 0'
   workflow_dispatch:
     inputs:
       dry_run:
