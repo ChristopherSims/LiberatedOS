@@ -150,12 +150,12 @@ fi
 
 pkgbase="linux-$_pkgsuffix"
 _major=7.0
-_minor=4
+_minor=5
 #_minorc=$((_minor+1))
 #_rcver=rc8
 pkgver=${_major}.${_minor}
-_tagrel=2
-pkgrel=2
+_tagrel=1
+pkgrel=1
 _srcname=cachyos-${_major}.${_minor}-${_tagrel}
 pkgdesc='Linux EEVDF scheduler Kernel by CachyOS targeted for Servers workloads'
 _kernver="$pkgver-$pkgrel"
@@ -745,5 +745,5 @@ for _p in "${pkgname[@]}"; do
     }"
 done
 
-b2sums=('15246e2d1a6fd23052d82976acb4dcd7603ea158a5041bd7a2da3adcd3ba9556dc1af210f189233c6a99279287177689f7c2ef8c81d4b6b8e9fd3e78f272d57b'
+b2sums=('6e3de2016468abfaacb4f02968118cb9e5ef4c897c9db92a72f10a5212b3080c57fcc881127dc954fa68a09442d1941f232e61ec9593924cffd39ca0be7e726d'
         '7bb5113dbc67e8e2ce5c5473ae1b08973af5adba0a6a14c64a213bb116e5a172d40b7c274b85ad15553511484ee1f120e0372251e242c6f87ce6920235f0c136')
