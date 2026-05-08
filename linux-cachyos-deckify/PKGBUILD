@@ -153,8 +153,8 @@ _minor=4
 #_minorc=$((_minor+1))
 #_rcver=rc8
 pkgver=${_major}.${_minor}
-_tagrel=1
-pkgrel=1
+_tagrel=2
+pkgrel=2
 _srcname=cachyos-${_major}.${_minor}-${_tagrel}
 pkgdesc='Linux BORE + Cachy Sauce + Handheld Kernel by CachyOS with other patches and improvements.'
 _kernver="$pkgver-$pkgrel"
@@ -764,7 +764,7 @@ for _p in "${pkgname[@]}"; do
     }"
 done
 
-b2sums=('5e20b744416a1550ea784ac7a5ca55107a5a2360a23d8cb16ef0e6cba7721dc7d9efc4c58a5bcdc9f5900dd0b3411545fce7412ea51c7312f45dafa25c093071'
+b2sums=('15246e2d1a6fd23052d82976acb4dcd7603ea158a5041bd7a2da3adcd3ba9556dc1af210f189233c6a99279287177689f7c2ef8c81d4b6b8e9fd3e78f272d57b'
         '6fd22f9fa46a0a3574ecc03dbaa6dd160a2966224a6673817aa9f1fc0b4e0d1c2bf8b954b18109621b7c5a1717027ec51bc27eb59924c061fc77fe0989aadc62'
         'ddaf90fd846e13cb213fb343f9599447d377dd51111cd2cbfbda2334836ba7c6925a28453353017a785163dbd1d5d44f1c7eca036c611a8dcf2cecab7d35c2de'
         '849d02e71a7b5d1ab34c14080e134fd24d814d6b4c368aa7dee9ff4022f3a8413a44efd9c03024c44db2f3408361a8eef932a9c750133521591108234fa3e7c0'
