@@ -118,12 +118,11 @@ jobs:
 
           pkgver() {
             cd systemd
-            local _ver
             _ver=$(git describe --tags 2>/dev/null)
             if [ -n "$_ver" ]; then
-              echo "$_ver" | sed 's/^v//;s/-/./g'
+              printf '%s' "$_ver" | sed 's/^v//;s/-/./g'
             else
-              echo "260.1.$(git rev-list --count HEAD)"
+              printf '260.1.%s' "$(git rev-parse --short HEAD)"
             fi
           }
 
