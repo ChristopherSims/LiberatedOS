@@ -29,7 +29,7 @@ jobs:
         with:
           ref: master
           fetch-depth: 0
-          submodules: true
+          submodules: recursive
 
       - name: Configure Git
         run: |
@@ -39,8 +39,8 @@ jobs:
 
       - name: Add upstream remote
         run: |
-          git remote add upstream-cachyos https://github.com/CachyOS/linux-cachyos.git
-          git fetch upstream-cachyos master
+          git remote add upstream-cachyos https://github.com/CachyOS/linux-cachyos.git || true
+          git fetch --all --tags
 
       - name: Run sync script
         id: sync

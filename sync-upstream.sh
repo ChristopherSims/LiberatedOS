@@ -5,6 +5,7 @@ set -euo pipefail
 
 CACHYOS_REMOTE="https://github.com/CachyOS/linux-cachyos.git"
 CACHYOS_BRANCH="master"
+GIT_FETCH_DEPTH=0
 SYSTEMD_REMOTE="https://github.com/Jeffrey-Sardina/systemd.git"
 SYSTEMD_BRANCH="main"
 
@@ -18,23 +19,35 @@ sync_cachyos() {
     log "Checking CachyOS/linux-cachyos for updates..."
 
     # Fetch latest from CachyOS
-    git fetch upstream-cachyos "$CACHYOS_BRANCH" 2>/dev/null || {
+    if ! git remote get-url upstream-cachyos >/dev/null 2>&1; then
         log "Adding CachyOS remote..."
         git remote add upstream-cachyos "$CACHYOS_REMOTE"
-        git fetch upstream-cachyos "$CACHYOS_BRANCH"
-    }
+    fi
+    log "Fetching upstream-cachyos/$CACHYOS_BRANCH ..."
+    git fetch upstream-cachyos "$CACHYOS_BRANCH" --tags
 
     LOCAL_HEAD=$(git rev-parse HEAD)
     UPSTREAM_HEAD=$(git rev-parse "upstream-cachyos/$CACHYOS_BRANCH")
 
+    log "CachyOS: local=$LOCAL_HEAD, upstream=$UPSTREAM_HEAD"
+
     if [ "$LOCAL_HEAD" = "$UPSTREAM_HEAD" ]; then
-        # Check if upstream has commits we don't have in our tree
-        # We compare by checking merge-base
-        MERGE_BASE=$(git merge-base HEAD "upstream-cachyos/$CACHYOS_BRANCH")
-        if [ "$MERGE_BASE" = "$UPSTREAM_HEAD" ]; then
-            log "CachyOS: No new updates."
-            return 0
-        fi
+        log "CachyOS: Already at upstream HEAD. No new updates."
+        return 0
+    fi
+
+    MERGE_BASE=$(git merge-base HEAD "upstream-cachyos/$CACHYOS_BRANCH")
+    log "CachyOS: merge-base=$MERGE_BASE"
+
+    if [ "$MERGE_BASE" = "$UPSTREAM_HEAD" ]; then
+        log "CachyOS: No new upstream commits since last merge."
+        return 0
+    fi
+
+    if [ "$MERGE_BASE" = "$LOCAL_HEAD" ]; then
+        log "CachyOS: Fast-forward possible."
+    else
+        log "CachyOS: Diverged, need merge."
     fi
 
     log "CachyOS has updates. Syncing..."
