@@ -59,27 +59,38 @@ sync_cachyos() {
     fi
 
     # Merge upstream changes, preferring ours for README and branding
-    git merge "upstream-cachyos/$CACHYOS_BRANCH" \
+    if git merge "upstream-cachyos/$CACHYOS_BRANCH" \
         --no-edit \
-        -m "sync: merge CachyOS/linux-cachyos upstream updates" || {
-        log "Merge conflict detected, resolving with ours strategy for FreeOS files..."
+        -m "sync: merge CachyOS/linux-cachyos upstream updates"; then
+        return 0
+    fi
 
-        # Resolve conflicts: prefer upstream for kernel files, ours for branding
-        # Accept all upstream changes for kernel directories
-        for conflict in $(git diff --name-only --diff-filter=U); do
-            case "$conflict" in
-                README.md|CODE_OF_CONDUCT.md|CONTRIBUTING.md|.github/FUNDING.yml)
-                    git checkout --ours -- "$conflict"
-                    git add "$conflict"
-                    ;;
-                *)
-                    git checkout --theirs -- "$conflict"
-                    git add "$conflict"
-                    ;;
-            esac
-        done
-        git commit --no-edit
-    }
+    log "Merge conflict detected, resolving with ours strategy for FreeOS files..."
+
+    # Check if there are any unresolved conflicts left
+    UNRESOLVED=$(git diff --name-only --diff-filter=U)
+    if [ -z "$UNRESOLVED" ]; then
+        log "All conflicts already resolved. Committing..."
+        git commit --no-edit || true
+        return 0
+    fi
+    log "Unresolved files: $UNRESOLVED"
+
+    # Resolve conflicts: prefer upstream for kernel files, ours for branding
+    # Accept all upstream changes for kernel directories
+    for conflict in $(git diff --name-only --diff-filter=U); do
+        case "$conflict" in
+            README.md|CODE_OF_CONDUCT.md|CONTRIBUTING.md|.github/FUNDING.yml)
+                git checkout --ours -- "$conflict"
+                git add "$conflict"
+                ;;
+            *)
+                git checkout --theirs -- "$conflict"
+                git add "$conflict"
+                ;;
+        esac
+    done
+    git commit --no-edit || true
 
     # Replace any systemd/systemd references that may have been introduced
     replace_systemd_refs
