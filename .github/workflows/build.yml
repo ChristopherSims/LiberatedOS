@@ -117,13 +117,8 @@ jobs:
           sha512sums=('SKIP')
 
           pkgver() {
-            cd systemd
-            _ver=$(git describe --tags 2>/dev/null)
-            if [ -n "$_ver" ]; then
-              printf '%s' "$_ver" | sed 's/^v//;s/-/./g'
-            else
-              printf '260.1.%s' "$(git rev-parse --short HEAD)"
-            fi
+            cd "${srcdir}/systemd" || return 1
+            printf '260.1.%s\n' "$(git rev-parse --short HEAD)"
           }
 
           build() {
