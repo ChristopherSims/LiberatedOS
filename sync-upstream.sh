@@ -68,7 +68,7 @@ sync_cachyos() {
         --no-edit \
         -m "sync: merge CachyOS/linux-cachyos upstream updates" \
         --allow-unrelated-histories 2>/dev/null; then
-        replace_systemd_refs
+        replace_systemd_refs || true
         return 0
     fi
 
@@ -79,7 +79,7 @@ sync_cachyos() {
     if [ -z "$UNRESOLVED" ]; then
         log "All conflicts already resolved. Committing..."
         git commit --no-edit || true
-        replace_systemd_refs
+        replace_systemd_refs || true
         return 0
     fi
     log "Unresolved files: $UNRESOLVED"
@@ -101,7 +101,7 @@ sync_cachyos() {
     git commit --no-edit || true
 
     # Replace any systemd/systemd references that may have been introduced
-    replace_systemd_refs
+    replace_systemd_refs || true
 }
 
 # --- Liberated systemd sync ---
