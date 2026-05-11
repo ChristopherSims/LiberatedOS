@@ -216,12 +216,7 @@ jobs:
           grep -qxF 'systemd-liberated' /tmp/freeos-profile/packages.x86_64 || echo 'systemd-liberated' >> /tmp/freeos-profile/packages.x86_64
 
           # Add our local repo to the profile pacman.conf so mkarchiso can resolve packages
-          cat >> /tmp/freeos-profile/pacman.conf <<'EOF'
-
-[freeos]
-SigLevel = Optional TrustAll
-Server = file:///tmp/freeos-repo
-EOF
+          printf '\n[freeos]\nSigLevel = Optional TrustAll\nServer = file:///tmp/freeos-repo\n' >> /tmp/freeos-profile/pacman.conf
 
       - name: Build ISO
         run: |
