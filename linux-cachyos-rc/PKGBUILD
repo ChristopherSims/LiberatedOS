@@ -60,12 +60,11 @@
 ### Running with a 1000HZ, 750Hz, 600 Hz, 500Hz, 300Hz, 250Hz and 100Hz tick rate
 : "${_HZ_ticks:=1000}"
 
-## Choose between perodic, idle or full
+## Choose between periodic, idle or full
 ### Full tickless can give higher performances in various cases but, depending on hardware, lower consistency.
 : "${_tickrate:=full}"
 
 ## Choose between full, lazy or dynamic
-# Dynamic allows you to switch between full and lazy at runtime
 # Full: Makes all non-critical kernel code preemptible to reduce latency
 # Lazy: Same as full but instead of preempting immediately it waits for signals from the scheduler
 #       in an attempt to boost throughput.
@@ -175,13 +174,13 @@ else
 fi
 
 pkgbase="linux-$_pkgsuffix"
-_major=7.0
+_major=7.1
 _minor=0
 #_minorc=$((_minor+1))
-_rcver=rc7
+_rcver=rc3
 pkgver=${_major}.${_rcver}
-_tagrel=3
-pkgrel=2
+_tagrel=1
+pkgrel=1
 #_stable=${_major}.${_minor}
 #_stable=${_major}
 _stable=${_major}-${_rcver}
@@ -196,9 +195,13 @@ license=('GPL-2.0-only')
 options=('!strip' '!debug' '!lto')
 makedepends=(
   bc
+  binutils
   cpio
   gettext
+  glibc
   libelf
+  libgcc
+  openssl
   pahole
   perl
   python
@@ -206,12 +209,14 @@ makedepends=(
   rust-bindgen
   rust-src
   tar
+  xxhash
   xz
+  zlib
   zstd
 )
 
 _patchsource="https://raw.githubusercontent.com/cachyos/kernel-patches/master/${_major}"
-_nv_ver=595.58.03
+_nv_ver=595.71.05
 _nv_pkg="NVIDIA-Linux-x86_64-${_nv_ver}"
 _nv_open_pkg="NVIDIA-kernel-module-source-${_nv_ver}"
 source=(
@@ -244,11 +249,10 @@ fi
 
 if [ "$_build_nvidia_open" = "yes" ]; then
     source+=("https://download.nvidia.com/XFree86/${_nv_open_pkg%"-$_nv_ver"}/${_nv_open_pkg}.tar.xz"
-             "${_patchsource}/misc/nvidia/0002-Add-IBT-support.patch"
-             "${_patchsource}/misc/nvidia/0004-HACK-kernel-open-Makefile-Remove-PAHOLE_VARIABLE.patch"
-             "${_patchsource}/misc/nvidia/0003-fix-dsc-correct-RC-parameter-tables-to-match-VESA-DS.patch"
-             "${_patchsource}/misc/nvidia/0004-fix-dsc-use-bits_per_component-for-flatnessDetThresh.patch"
-             "${_patchsource}/misc/nvidia/0005-fix-dp-add-Bigscreen-Beyond-VR-headset-to-WAR-databa.patch")
+             "${_patchsource}/misc/nvidia/0001-Add-IBT-support.patch"
+             "${_patchsource}/misc/nvidia/0002-fix-dsc-correct-RC-parameter-tables-to-match-VESA-DS.patch"
+             "${_patchsource}/misc/nvidia/0003-fix-dsc-use-bits_per_component-for-flatnessDetThresh.patch"
+             "${_patchsource}/misc/nvidia/0004-fix-dp-add-Bigscreen-Beyond-VR-headset-to-WAR-databa.patch")
 fi
 
 # Use generated AutoFDO Profile
@@ -389,7 +393,7 @@ prepare() {
 
     ### Select tick type
     case "$_tickrate" in
-        perodic) scripts/config -d NO_HZ_IDLE -d NO_HZ_FULL -d NO_HZ -d NO_HZ_COMMON -e HZ_PERIODIC;;
+        periodic) scripts/config -d NO_HZ_IDLE -d NO_HZ_FULL -d NO_HZ -d NO_HZ_COMMON -e HZ_PERIODIC;;
         idle) scripts/config -d HZ_PERIODIC -d NO_HZ_FULL -e NO_HZ_IDLE  -e NO_HZ -e NO_HZ_COMMON;;
         full) scripts/config -d HZ_PERIODIC -d NO_HZ_IDLE -d CONTEXT_TRACKING_FORCE -e NO_HZ_FULL_NODEF -e NO_HZ_FULL -e NO_HZ -e NO_HZ_COMMON -e CONTEXT_TRACKING;;
         *) _die "The value '$_tickrate' is invalid. Choose the correct one again.";;
@@ -402,9 +406,8 @@ prepare() {
     # We should not set up the PREEMPT for RT kernels
     if [[ "$_cpusched" != "rt" && "$_cpusched" != "rt-bore" ]]; then
         case "$_preempt" in
-            full) scripts/config -d PREEMPT_DYNAMIC -e PREEMPT -d PREEMPT_LAZY;;
-            lazy) scripts/config -d PREEMPT_DYNAMIC -d PREEMPT -e PREEMPT_LAZY;;
-            dynamic) scripts/config -e PREEMPT_DYNAMIC -e PREEMPT -d PREEMPT_LAZY;;
+            full) scripts/config -e PREEMPT -d PREEMPT_LAZY;;
+            lazy) scripts/config -d PREEMPT -e PREEMPT_LAZY;;
             *) _die "The value '$_preempt' is invalid. Choose the correct one again.";;
         esac
 
@@ -616,7 +619,16 @@ _package() {
 
 _package-headers() {
     pkgdesc="Headers and scripts for building modules for the $pkgdesc kernel"
-    depends=('pahole' "${pkgbase}")
+    depends=(binutils
+      glibc
+      libelf
+      libgcc
+      openssl
+      pahole
+      xxhash
+      zlib
+      zstd
+     "${pkgbase}")
     provides=(LINUX-HEADERS)
 
     if _is_lto_kernel; then
@@ -802,6 +814,6 @@ for _p in "${pkgname[@]}"; do
     }"
 done
 
-b2sums=('83a22300c3aca33fc4ba63171546d1ae1f1a3126553a61d45aa656e06a6d0b11a05a417f0854c75bf8570d9fd165765789af939c352388c57344b85de157cfad'
-        'f31abd75b2551c74aa86e8dd3f31e959dab2592e20ec52ffae5505b4baad2eef12757a77908fba3e95391c074b68da4d9ef6f213dc6ba224ae1872cd6ca457eb'
+b2sums=('6a25a75f928dd55b3543b5c4f178d6c784a06d13c9eb0fc0253d0bb0c77f78abbcd02108e84d385e0e5d1a8e650433184939ebb3f8e67d0cd045fa381a54358d'
+        '3f4afd2643d5248805e28baac898c224c2db41c0ebaea118dea6ceeb81a12329062a9068a409aaf793631cc71005fd9047f198d2d572ef449d41ee338d757ff7'
         'c992567bd7dd8553432be496ffa1c17e2f5ebe9c7edb51945cf977e1b742dd6517c210d8843bb82744ca705efd07f8027cd7dde41b50215ebd707a34aa81462e')
