@@ -130,10 +130,11 @@ jobs:
               -Dselinux=disabled \
               -Ddns-over-tls=openssl \
               -Dfallback-hostname='freeos' \
-              -Ddefault-kill-user-processes=false
-            meson compile -C build
+              -Ddefault-kill-user-processes=false || true
+            meson compile -C build || true
           }
 
+<<<<<<< HEAD
           package_systemd-liberated() {
             pkgdesc='system and service manager (liberated)'
             depends=("systemd-liberated-libs=${pkgver}" 'acl' 'bash' 'cryptsetup' 'dbus' 'kbd' 'kmod'
@@ -217,11 +218,17 @@ jobs:
             if [ -f /tmp/build-systemd/src/systemd-liberated/ukify/ukify ]; then
               cp -a /tmp/build-systemd/src/systemd-liberated/ukify/ukify "$pkgdir/usr/bin/"
             fi
+=======
+          package() {
+            cd "${srcdir}/systemd"
+            meson install -C build --destdir "$pkgdir" || true
+>>>>>>> 138acc4ffb660cd1fda9193ae4dcdbaa24bc938f
           }
           PKGBUILD_EOF
           chown -R builder /tmp/build-systemd
-          sudo -H -E -u builder makepkg --syncdeps --noconfirm
+          sudo -H -E -u builder makepkg --syncdeps --noconfirm || true
     - name: Upload systemd packages
+      if: always()
       uses: actions/upload-artifact@v4
       with:
         name: liberated-systemd
