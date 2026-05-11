@@ -88,12 +88,13 @@ jobs:
           useradd builder -m
           echo "builder ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
           chmod -R a+rw /tmp
-    - name: Build liberated-systemd package
+    - name: Build liberated-systemd packages
       run: |
           mkdir -p /tmp/build-systemd
           cd /tmp/build-systemd
           cat > PKGBUILD <<'PKGBUILD_EOF'
-          pkgname=systemd-liberated
+          pkgbase=systemd-liberated
+          pkgname=(systemd-liberated systemd-liberated-libs systemd-liberated-resolvconf systemd-liberated-sysvcompat systemd-liberated-ukify)
           pkgver=260.1
           pkgrel=1
           pkgdesc='Liberated system and service manager - no surveillance. Ever.'
@@ -106,13 +107,6 @@ jobs:
           makedepends=('meson' 'git' 'gperf' 'libxslt' 'python-jinja' 'python-lxml'
                        'linux-api-headers' 'bash-completion' 'clang' 'llvm' 'libbpf'
                        'libmicrohttpd' 'libxcrypt' 'libidn2' 'libgcrypt')
-          provides=('systemd' 'systemd-libs' 'systemd-resolvconf' 'systemd-sysvcompat'
-                    'systemd-tools' 'udev' 'nss-myhostname' 'libsystemd' 'libsystemd.so'
-                    'libudev.so' 'openresolv' 'resolvconf' 'systemd-ukify')
-          conflicts=('systemd' 'systemd-libs' 'systemd-resolvconf' 'systemd-sysvcompat'
-                     'nss-myhostname' 'systemd-tools' 'udev' 'libsystemd' 'openresolv'
-                     'systemd-ukify')
-          replaces=('nss-myhostname' 'systemd-tools' 'udev' 'libsystemd')
           source=("git+https://github.com/Jeffrey-Sardina/systemd.git#branch=main")
           sha512sums=('SKIP')
 
@@ -140,9 +134,89 @@ jobs:
             meson compile -C build
           }
 
-          package() {
-            cd "${srcdir}/systemd"
+          package_systemd-liberated() {
+            pkgdesc='system and service manager (liberated)'
+            depends=("systemd-liberated-libs=${pkgver}" 'acl' 'bash' 'cryptsetup' 'dbus' 'kbd' 'kmod'
+                     'libgcrypt' 'libxcrypt' 'libidn2' 'lz4' 'pam' 'libelf' 'libseccomp'
+                     'util-linux' 'xz' 'pcre2' 'audit' 'openssl' 'libcap')
+            provides=('systemd' 'systemd-tools' 'udev' 'nss-myhostname')
+            conflicts=('systemd' 'systemd-tools' 'udev' 'nss-myhostname')
+            replaces=('nss-myhostname' 'systemd-tools' 'udev')
+            backup=(etc/systemd/coredump.conf
+                    etc/systemd/homed.conf
+                    etc/systemd/journald.conf
+                    etc/systemd/logind.conf
+                    etc/systemd/networkd.conf
+                    etc/systemd/oomd.conf
+                    etc/systemd/pstore.conf
+                    etc/systemd/resolved.conf
+                    etc/systemd/sleep.conf
+                    etc/systemd/system.conf
+                    etc/systemd/timesyncd.conf
+                    etc/systemd/user.conf
+                    etc/udev/udev.conf)
             meson install -C build --destdir "$pkgdir"
+            # Strip out libs shipped in -libs subpackage
+            mkdir -p systemd-libs
+            mv "$pkgdir"/usr/lib/lib{nss,systemd,udev}*.so* systemd-libs/ 2>/dev/null || true
+            mv "$pkgdir"/usr/lib/pkgconfig systemd-libs/ 2>/dev/null || true
+            mv "$pkgdir"/usr/include systemd-libs/ 2>/dev/null || true
+            # Strip out resolvconf shipped in -resolvconf subpackage
+            mkdir -p resolvconf
+            mv "$pkgdir"/usr/bin/resolvconf resolvconf/ 2>/dev/null || true
+            # Strip out sysvcompat shipped in -sysvcompat subpackage
+            mkdir -p sysvcompat
+            for f in halt init poweroff reboot shutdown; do
+              mv "$pkgdir"/usr/bin/$f sysvcompat/ 2>/dev/null || true
+            done
+            # Strip out ukify shipped in -ukify subpackage
+            mkdir -p ukify
+            mv "$pkgdir"/usr/bin/ukify ukify/ 2>/dev/null || true
+          }
+
+          package_systemd-liberated-libs() {
+            pkgdesc='systemd client libraries (liberated)'
+            depends=('glibc' 'libgcc' 'libgcrypt' 'lz4' 'xz' 'zstd' 'libcap')
+            provides=('libsystemd' 'libsystemd.so' 'libudev.so')
+            conflicts=('libsystemd')
+            replaces=('libsystemd')
+            mkdir -p "$pkgdir/usr/lib"
+            if [ -d /tmp/build-systemd/src/systemd-liberated/systemd-libs ]; then
+              cp -a /tmp/build-systemd/src/systemd-liberated/systemd-libs/* "$pkgdir/usr/lib/"
+            fi
+          }
+
+          package_systemd-liberated-resolvconf() {
+            pkgdesc='systemd resolvconf replacement (liberated)'
+            depends=("systemd-liberated=${pkgver}")
+            provides=('openresolv' 'resolvconf')
+            conflicts=('resolvconf')
+            mkdir -p "$pkgdir/usr/bin"
+            if [ -f /tmp/build-systemd/src/systemd-liberated/resolvconf/resolvconf ]; then
+              cp -a /tmp/build-systemd/src/systemd-liberated/resolvconf/resolvconf "$pkgdir/usr/bin/"
+            fi
+          }
+
+          package_systemd-liberated-sysvcompat() {
+            pkgdesc='sysvinit compat for systemd (liberated)'
+            conflicts=('sysvinit')
+            depends=("systemd-liberated=${pkgver}")
+            mkdir -p "$pkgdir/usr/bin"
+            if [ -d /tmp/build-systemd/src/systemd-liberated/sysvcompat ]; then
+              cp -a /tmp/build-systemd/src/systemd-liberated/sysvcompat/* "$pkgdir/usr/bin/"
+            fi
+          }
+
+          package_systemd-liberated-ukify() {
+            pkgdesc='Combine kernel and initrd into a signed UKI (liberated)'
+            provides=('ukify')
+            depends=("systemd-liberated=${pkgver}" 'binutils' 'python-cryptography' 'python-pefile')
+            optdepends=('python-pillow: Show the size of splash image'
+                        'sbsigntools: Sign the embedded kernel')
+            mkdir -p "$pkgdir/usr/bin"
+            if [ -f /tmp/build-systemd/src/systemd-liberated/ukify/ukify ]; then
+              cp -a /tmp/build-systemd/src/systemd-liberated/ukify/ukify "$pkgdir/usr/bin/"
+            fi
           }
           PKGBUILD_EOF
           chown -R builder /tmp/build-systemd
@@ -215,7 +289,9 @@ jobs:
           sed -i '/^systemd-resolvconf$/d' /tmp/freeos-profile/packages.x86_64 || true
           sed -i '/^systemd-sysvcompat$/d' /tmp/freeos-profile/packages.x86_64 || true
           sed -i '/^systemd-ukify$/d' /tmp/freeos-profile/packages.x86_64 || true
-          grep -qxF 'systemd-liberated' /tmp/freeos-profile/packages.x86_64 || echo 'systemd-liberated' >> /tmp/freeos-profile/packages.x86_64
+          for pkg in systemd-liberated systemd-liberated-libs systemd-liberated-resolvconf systemd-liberated-sysvcompat systemd-liberated-ukify; do
+            grep -qxF "$pkg" /tmp/freeos-profile/packages.x86_64 || echo "$pkg" >> /tmp/freeos-profile/packages.x86_64
+          done
 
           # Add our local repo to the profile pacman.conf so mkarchiso can resolve packages
           printf '\n[freeos]\nSigLevel = Optional TrustAll\nServer = file:///tmp/freeos-repo\n' >> /tmp/freeos-profile/pacman.conf
