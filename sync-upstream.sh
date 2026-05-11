@@ -68,6 +68,9 @@ sync_cachyos() {
         --no-edit \
         -m "sync: merge CachyOS/linux-cachyos upstream updates" \
         --allow-unrelated-histories 2>/dev/null; then
+        # Reset .github folder to keep our workflows/CI config untouched
+        git checkout --ours -- .github/ || true
+        git add .github/ || true
         replace_systemd_refs || true
         return 0
     fi
@@ -78,6 +81,8 @@ sync_cachyos() {
     UNRESOLVED=$(git diff --name-only --diff-filter=U || true)
     if [ -z "$UNRESOLVED" ]; then
         log "All conflicts already resolved. Committing..."
+        git checkout --ours -- .github/ || true
+        git add .github/ || true
         git commit --no-edit || true
         replace_systemd_refs || true
         return 0
@@ -92,12 +97,20 @@ sync_cachyos() {
                 git checkout --ours -- "$conflict" || true
                 git add "$conflict" || true
                 ;;
+            .github/*)
+                # Skip .github files entirely — keep ours to avoid workflow permission issues
+                git checkout --ours -- "$conflict" || true
+                git add "$conflict" || true
+                ;;
             *)
                 git checkout --theirs -- "$conflict" || true
                 git add "$conflict" || true
                 ;;
         esac
     done
+    # Reset entire .github folder to keep our workflows/CI config untouched
+    git checkout --ours -- .github/ || true
+    git add .github/ || true
     git commit --no-edit || true
 
     # Replace any systemd/systemd references that may have been introduced
