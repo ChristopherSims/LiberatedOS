@@ -36,15 +36,20 @@ sync_cachyos() {
         return 0
     fi
 
-    MERGE_BASE=$(git merge-base HEAD "upstream-cachyos/$CACHYOS_BRANCH")
-    log "CachyOS: merge-base=$MERGE_BASE"
+    MERGE_BASE=$(git merge-base HEAD "upstream-cachyos/$CACHYOS_BRANCH" 2>/dev/null || true)
+    if [ -z "$MERGE_BASE" ]; then
+        log "CachyOS: No common merge base found. Treating as diverged histories."
+        MERGE_BASE=""
+    else
+        log "CachyOS: merge-base=$MERGE_BASE"
+    fi
 
-    if [ "$MERGE_BASE" = "$UPSTREAM_HEAD" ]; then
+    if [ -n "$MERGE_BASE" ] && [ "$MERGE_BASE" = "$UPSTREAM_HEAD" ]; then
         log "CachyOS: No new upstream commits since last merge."
         return 0
     fi
 
-    if [ "$MERGE_BASE" = "$LOCAL_HEAD" ]; then
+    if [ -n "$MERGE_BASE" ] && [ "$MERGE_BASE" = "$LOCAL_HEAD" ]; then
         log "CachyOS: Fast-forward possible."
     else
         log "CachyOS: Diverged, need merge."
@@ -61,32 +66,35 @@ sync_cachyos() {
     # Merge upstream changes, preferring ours for README and branding
     if git merge "upstream-cachyos/$CACHYOS_BRANCH" \
         --no-edit \
-        -m "sync: merge CachyOS/linux-cachyos upstream updates"; then
+        -m "sync: merge CachyOS/linux-cachyos upstream updates" \
+        --allow-unrelated-histories 2>/dev/null; then
+        replace_systemd_refs
         return 0
     fi
 
     log "Merge conflict detected, resolving with ours strategy for FreeOS files..."
 
     # Check if there are any unresolved conflicts left
-    UNRESOLVED=$(git diff --name-only --diff-filter=U)
+    UNRESOLVED=$(git diff --name-only --diff-filter=U || true)
     if [ -z "$UNRESOLVED" ]; then
         log "All conflicts already resolved. Committing..."
         git commit --no-edit || true
+        replace_systemd_refs
         return 0
     fi
     log "Unresolved files: $UNRESOLVED"
 
     # Resolve conflicts: prefer upstream for kernel files, ours for branding
     # Accept all upstream changes for kernel directories
-    for conflict in $(git diff --name-only --diff-filter=U); do
+    for conflict in $(git diff --name-only --diff-filter=U || true); do
         case "$conflict" in
             README.md|CODE_OF_CONDUCT.md|CONTRIBUTING.md|.github/FUNDING.yml)
-                git checkout --ours -- "$conflict"
-                git add "$conflict"
+                git checkout --ours -- "$conflict" || true
+                git add "$conflict" || true
                 ;;
             *)
-                git checkout --theirs -- "$conflict"
-                git add "$conflict"
+                git checkout --theirs -- "$conflict" || true
+                git add "$conflict" || true
                 ;;
         esac
     done
@@ -144,13 +152,13 @@ replace_systemd_refs() {
     log "Replacing systemd/systemd references with Jeffrey-Sardina/systemd..."
 
     CHANGED=0
-    for pkgbuild in $(find . -name PKGBUILD -not -path "./systemd/*"); do
+    while IFS= read -r -d '' pkgbuild; do
         if grep -q 'https://github.com/systemd/systemd/' "$pkgbuild" 2>/dev/null; then
-            sed -i 's|https://github.com/systemd/systemd/|https://github.com/Jeffrey-Sardina/systemd/|g' "$pkgbuild"
-            git add "$pkgbuild"
+            sed -i 's|https://github.com/systemd/systemd/|https://github.com/Jeffrey-Sardina/systemd/|g' "$pkgbuild" || true
+            git add "$pkgbuild" || true
             CHANGED=1
         fi
-    done
+    done < <(find . -name PKGBUILD -not -path "./systemd/*" -print0 2>/dev/null)
 
     if [ "$CHANGED" = "1" ]; then
         git commit -m "sync: replace systemd/systemd references with Jeffrey-Sardina/systemd" --no-edit || true
