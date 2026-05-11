@@ -1,12 +1,12 @@
 <div align="center">
-  <h1 align="center">FreeOS</h1>
+  <h1 align="center">Liberated OS</h1>
   <p align="center">Liberated Linux kernels with no surveillance. Ever.</p>
   <p align="center">Based on <a href="https://github.com/CachyOS/linux-cachyos">CachyOS</a> kernels + <a href="https://github.com/Jeffrey-Sardina/systemd">Liberated systemd</a></p>
 </div>
 
-## What is FreeOS?
+## What is LiberatedOS?
 
-FreeOS combines the high-performance CachyOS Linux kernels with Jeffrey-Sardina's Liberated systemd -- a fork of systemd with all surveillance and telemetry removed. No age verification. No hardware survey. No phone-home. Ever.
+LiberatedOS combines the high-performance CachyOS Linux kernels with Jeffrey-Sardina's Liberated systemd -- a fork of systemd with all surveillance and telemetry removed. No age verification. No hardware survey. No phone-home. Ever.
 
 ### Why Liberated systemd?
 
@@ -72,7 +72,7 @@ Each scheduler is optimized for different use cases. We recommend testing each o
 ## Repository Structure
 
 ```
-FreeOS/
+LiberatedOS/
 ├── systemd/                    # Liberated systemd (Jeffrey-Sardina/systemd)
 ├── linux-cachyos/              # EEVDF scheduler (default)
 ├── linux-cachyos-bore/         # BORE scheduler
