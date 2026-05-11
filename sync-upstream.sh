@@ -76,20 +76,31 @@ sync_cachyos() {
 sync_systemd() {
     log "Checking Jeffrey-Sardina/systemd for updates..."
 
-    git submodule update --init --remote systemd
+    git submodule update --init --remote systemd 2>/dev/null || {
+        log "Initializing systemd submodule..."
+        git submodule update --init systemd
+        git -C systemd remote add origin "$SYSTEMD_REMOTE" 2>/dev/null || true
+    }
 
-    SYSTEMD_CURRENT=$(git ls-tree HEAD -- systemd | awk '{print $3}')
     cd systemd
+    # Ensure we can fetch from the actual upstream remote
+    if ! git remote get-url origin >/dev/null 2>&1; then
+        git remote add origin "$SYSTEMD_REMOTE"
+    fi
     git fetch origin "$SYSTEMD_BRANCH"
     SYSTEMD_LATEST=$(git rev-parse "origin/$SYSTEMD_BRANCH")
     cd ..
 
+    SYSTEMD_CURRENT=$(git ls-tree HEAD -- systemd | awk '{print $3}')
+
     if [ "$SYSTEMD_CURRENT" = "$SYSTEMD_LATEST" ]; then
-        log "Liberated systemd: No new updates."
+        log "Liberated systemd: No new updates (current=$SYSTEMD_CURRENT, latest=$SYSTEMD_LATEST)."
         return 0
     fi
 
     log "Liberated systemd has updates. Updating submodule..."
+    log "  Current: $SYSTEMD_CURRENT"
+    log "  Latest:  $SYSTEMD_LATEST"
     CHANGES=1
 
     if [ "$DRY_RUN" = "true" ]; then

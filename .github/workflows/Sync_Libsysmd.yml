@@ -40,6 +40,10 @@ jobs:
         run: |
           git remote add upstream-liberated-systemd https://github.com/Jeffrey-Sardina/liberated-systemd
           git fetch upstream-liberated-systemd main
+      - name: Initialize and sync systemd submodule
+        run: |
+          git config core.protectNTFS false
+          git submodule update --init --remote systemd || git submodule update --init systemd
       - name: Run sync script
         id: sync
         env:
