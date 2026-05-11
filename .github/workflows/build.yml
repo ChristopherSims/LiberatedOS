@@ -118,7 +118,7 @@ jobs:
 
           pkgver() {
             cd systemd
-            git describe --tags 2>/dev/null | sed 's/^v//;s/-/./g' || echo "${pkgver}"
+            git describe --tags 2>/dev/null | sed 's/^v//;s/-/./g' || echo "260.1.$(git rev-list --count HEAD)"
           }
 
           build() {
