@@ -13,8 +13,8 @@ env:
   CCACHE_DIR: /home/builder/.ccache
 
 jobs:
-  build:
-    name: linux-cachyos
+  build-kernel:
+    name: linux-cachyos (${{ matrix.toolchain }})
     strategy:
       matrix:
         toolchain: [gcc, clang]
@@ -74,3 +74,162 @@ jobs:
       with:
         name: linux-cachyos-${{ matrix.toolchain }}
         path: linux-cachyos/*.pkg.tar.zst*
+
+  build-systemd:
+    name: liberated-systemd
+    runs-on: ubuntu-latest
+    container: archlinux:base-devel
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    - name: Setup build environment
+      run: |
+          pacman -Syu --noconfirm --needed meson git gperf libxslt python-jinja python-lxml linux-api-headers bash-completion clang llvm libbpf libmicrohttpd libxcrypt libidn2 libgcrypt
+          useradd builder -m
+          echo "builder ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
+    - name: Build liberated-systemd package
+      run: |
+          mkdir -p /tmp/build-systemd
+          cd /tmp/build-systemd
+          cat > PKGBUILD <<'PKGBUILD_EOF'
+          pkgname=systemd-liberated
+          pkgver=260.1
+          pkgrel=1
+          pkgdesc='Liberated system and service manager - no surveillance. Ever.'
+          arch=('x86_64')
+          url='https://github.com/Jeffrey-Sardina/systemd'
+          license=('LGPL-2.1-or-later')
+          depends=('acl' 'bash' 'cryptsetup' 'dbus' 'kbd' 'kmod' 'libgcrypt' 'libxcrypt'
+                   'libidn2' 'lz4' 'pam' 'libelf' 'libseccomp' 'util-linux' 'xz' 'pcre2'
+                   'audit' 'openssl' 'glibc' 'libgcc' 'lz4' 'xz' 'zstd' 'libcap')
+          makedepends=('meson' 'git' 'gperf' 'libxslt' 'python-jinja' 'python-lxml'
+                       'linux-api-headers' 'bash-completion' 'clang' 'llvm' 'libbpf'
+                       'libmicrohttpd' 'libxcrypt' 'libidn2' 'libgcrypt')
+          provides=('systemd' 'systemd-libs' 'systemd-resolvconf' 'systemd-sysvcompat'
+                    'systemd-tools' 'udev' 'nss-myhostname' 'libsystemd' 'libsystemd.so'
+                    'libudev.so' 'openresolv' 'resolvconf' 'systemd-ukify')
+          conflicts=('systemd' 'systemd-libs' 'systemd-resolvconf' 'systemd-sysvcompat'
+                     'nss-myhostname' 'systemd-tools' 'udev' 'libsystemd' 'openresolv'
+                     'systemd-ukify')
+          replaces=('nss-myhostname' 'systemd-tools' 'udev' 'libsystemd')
+          source=("git+https://github.com/Jeffrey-Sardina/systemd.git#branch=main")
+          sha512sums=('SKIP')
+
+          pkgver() {
+            cd systemd
+            git describe --tags 2>/dev/null | sed 's/^v//;s/-/./g' || echo "${pkgver}"
+          }
+
+          build() {
+            cd "${srcdir}/systemd"
+            arch-meson build \
+              -Dversion-tag="${pkgver}-${pkgrel}-freeos" \
+              -Dmode=release \
+              -Dapparmor=enabled \
+              -Dbootloader=enabled \
+              -Dbpf-framework=enabled \
+              -Dima=false \
+              -Dlibidn2=enabled \
+              -Dlz4=enabled \
+              -Dman=enabled \
+              -Dselinux=disabled \
+              -Ddns-over-tls=openssl \
+              -Dfallback-hostname='freeos' \
+              -Ddefault-kill-user-processes=false
+            meson compile -C build
+          }
+
+          package() {
+            cd "${srcdir}/systemd"
+            meson install -C build --destdir "$pkgdir"
+          }
+          PKGBUILD_EOF
+          sudo -H -E -u builder makepkg --syncdeps --noconfirm
+    - name: Upload systemd packages
+      uses: actions/upload-artifact@v4
+      with:
+        name: liberated-systemd
+        path: /tmp/build-systemd/*.pkg.tar.zst*
+
+  build-iso:
+    name: Build FreeOS ISO
+    needs: [build-kernel, build-systemd]
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:base-devel
+      options: --privileged
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup build environment
+        run: |
+          # Use CachyOS repository
+          cat << 'EOF' >> /etc/pacman.conf
+          [cachyos]
+          Server = https://mirror.cachyos.org/repo/x86_64/cachyos
+          EOF
+
+          pacman-key --init
+          pacman-key --recv-keys F3B607488DB35A47 --keyserver keyserver.ubuntu.com
+          pacman-key --lsign-key F3B607488DB35A47
+          pacman -Syu --noconfirm --needed archiso mkinitcpio-archiso squashfs-tools
+
+      - name: Download built kernel packages (GCC)
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-cachyos-gcc
+          path: /tmp/freeos-repo
+
+      - name: Download built systemd packages
+        uses: actions/download-artifact@v4
+        with:
+          name: liberated-systemd
+          path: /tmp/freeos-repo
+
+      - name: Create local pacman repository
+        run: |
+          cd /tmp/freeos-repo
+          repo-add freeos.db.tar.gz *.pkg.tar.zst
+
+      - name: Prepare FreeOS archiso profile
+        run: |
+          # Copy the official Arch releng profile as our base
+          cp -r /usr/share/archiso/configs/releng /tmp/freeos-profile
+
+          # Replace default Arch kernel with FreeOS kernel
+          sed -i 's/^linux$/linux-cachyos-gcc/' /tmp/freeos-profile/packages.x86_64 || true
+          sed -i '/^linux-headers$/d' /tmp/freeos-profile/packages.x86_64 || true
+          sed -i '/^linux-lts$/d' /tmp/freeos-profile/packages.x86_64 || true
+          sed -i '/^linux-lts-headers$/d' /tmp/freeos-profile/packages.x86_64 || true
+
+          # Ensure FreeOS kernel packages are present
+          grep -qxF 'linux-cachyos-gcc' /tmp/freeos-profile/packages.x86_64 || echo 'linux-cachyos-gcc' >> /tmp/freeos-profile/packages.x86_64
+          grep -qxF 'linux-cachyos-gcc-headers' /tmp/freeos-profile/packages.x86_64 || echo 'linux-cachyos-gcc-headers' >> /tmp/freeos-profile/packages.x86_64
+
+          # Replace default systemd with liberated systemd
+          sed -i '/^systemd$/d' /tmp/freeos-profile/packages.x86_64 || true
+          sed -i '/^systemd-libs$/d' /tmp/freeos-profile/packages.x86_64 || true
+          sed -i '/^systemd-resolvconf$/d' /tmp/freeos-profile/packages.x86_64 || true
+          sed -i '/^systemd-sysvcompat$/d' /tmp/freeos-profile/packages.x86_64 || true
+          sed -i '/^systemd-ukify$/d' /tmp/freeos-profile/packages.x86_64 || true
+          grep -qxF 'systemd-liberated' /tmp/freeos-profile/packages.x86_64 || echo 'systemd-liberated' >> /tmp/freeos-profile/packages.x86_64
+
+          # Add our local repo to the profile pacman.conf so mkarchiso can resolve packages
+          cat >> /tmp/freeos-profile/pacman.conf <<'EOF'
+
+[freeos]
+SigLevel = Optional TrustAll
+Server = file:///tmp/freeos-repo
+EOF
+
+      - name: Build ISO
+        run: |
+          mkdir -p /tmp/freeos-iso-out
+          mkarchiso -v -w /tmp/archiso-work -o /tmp/freeos-iso-out /tmp/freeos-profile
+
+      - name: Upload ISO to artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: freeos-desktop-iso
+          path: /tmp/freeos-iso-out/*.iso
