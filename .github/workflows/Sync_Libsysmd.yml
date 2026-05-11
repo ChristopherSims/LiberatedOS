@@ -36,19 +36,16 @@ jobs:
           git config user.name "FreeOS Sync Bot"
           git config user.email "freeos-sync-bot@users.noreply.github.com"
           git config core.protectNTFS false
-      - name: Add upstream remote
-        run: |
-          git remote add upstream-liberated-systemd https://github.com/Jeffrey-Sardina/liberated-systemd
-          git fetch upstream-liberated-systemd main
       - name: Initialize and sync systemd submodule
         run: |
           git config core.protectNTFS false
           git submodule update --init --remote systemd || git submodule update --init systemd
-      - name: Run sync script
+      - name: Run systemd sync script only
         id: sync
         env:
           DRY_RUN: ${{ inputs.dry_run || 'false' }}
           GITHUB_OUTPUT: $GITHUB_OUTPUT
+          SYNC_CACHYOS: 0
         run: |
           chmod +x sync-upstream.sh
           bash sync-upstream.sh

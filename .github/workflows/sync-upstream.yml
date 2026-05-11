@@ -42,11 +42,12 @@ jobs:
           git remote add upstream-cachyos https://github.com/CachyOS/linux-cachyos.git || true
           git fetch --all --tags
 
-      - name: Run sync script
+      - name: Run cachyos sync script only
         id: sync
         env:
           DRY_RUN: ${{ inputs.dry_run || 'false' }}
           GITHUB_OUTPUT: $GITHUB_OUTPUT
+          SYNC_SYSTEMD: 0
         run: |
           chmod +x sync-upstream.sh
           bash sync-upstream.sh

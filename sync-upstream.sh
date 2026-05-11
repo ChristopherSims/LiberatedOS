@@ -156,8 +156,18 @@ main() {
         git stash
     fi
 
-    sync_cachyos
-    sync_systemd
+    # Allow skipping CachyOS sync when only systemd is needed
+    if [ "${SYNC_CACHYOS:-1}" = "1" ]; then
+        sync_cachyos
+    else
+        log "SYNC_CACHYOS=0: Skipping CachyOS sync."
+    fi
+    # Allow skipping systemd sync when only cachyOS is needed
+    if [ "${SYNC_SYSTEMD:-1}" = "1" ]; then
+        sync_systemd
+    else
+        log "SYNC_SYSTEMD=0: Skipping systemd sync."
+    fi
 
     if [ "$CHANGES" = "1" ]; then
         log "Updates applied and committed."
