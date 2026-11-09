@@ -181,7 +181,7 @@ fi
 
 pkgbase="linux-$_pkgsuffix"
 _major=7.3
-_minor=1
+_minor=3
 #_minorc=$((_minor+1))
 #_rcver=rc8
 pkgver=${_major}.${_minor}
@@ -218,7 +218,7 @@ makedepends=(
 )
 
 _patchsource="https://raw.githubusercontent.com/cachyos/kernel-patches/master/${_major}"
-_nv_ver=615.78.08
+_nv_ver=620.70.06
 _nv_pkg="NVIDIA-Linux-x86_64-${_nv_ver}"
 _nv_open_pkg="NVIDIA-kernel-module-source-${_nv_ver}"
 _nv_580xx_ver=580.196.07
@@ -234,7 +234,9 @@ validpgpkeys=(
 
 # LLVM makedepends
 if _is_lto_kernel; then
-    makedepends+=(clang llvm lld)
+    # pahole needs the --lang_exclude fix for merged LTO CUs to generate
+    # BTF for Rust modules
+    makedepends+=(clang llvm lld 'pahole>=1:1.32-2')
     source+=("${_patchsource}/misc/dkms-clang.patch")
     BUILD_FLAGS=(
         CC=clang
@@ -385,12 +387,10 @@ prepare() {
 
     echo "Selecting '$_use_llvm_lto' LLVM level..."
 
-    if ! _is_lto_kernel; then
-        echo "Enabling QR Code Panic for GCC Kernels"
-        scripts/config --set-str DRM_PANIC_SCREEN qr_code -e DRM_PANIC_SCREEN_QR_CODE \
-            --set-str DRM_PANIC_SCREEN_QR_CODE_URL https://panic.archlinux.org/panic_report# \
-            --set-val CONFIG_DRM_PANIC_SCREEN_QR_VERSION 40
-    fi
+    echo "Enabling QR Code Panic"
+    scripts/config --set-str DRM_PANIC_SCREEN qr_code -e DRM_PANIC_SCREEN_QR_CODE \
+        --set-str DRM_PANIC_SCREEN_QR_CODE_URL https://panic.archlinux.org/panic_report# \
+        --set-val CONFIG_DRM_PANIC_SCREEN_QR_VERSION 40
 
     ### Select tick rate
     case "$_HZ_ticks" in
@@ -664,7 +664,7 @@ _package-headers() {
     if _is_lto_kernel; then
         provides+=(linux-cachyos-lto-headers=$_kernver)
         replaces=(linux-cachyos-lto-headers)
-        depends+=(clang llvm lld)
+        depends+=(clang llvm lld 'pahole>=1:1.32-2')
     fi
 
     cd "${_srcname}"
@@ -873,7 +873,7 @@ for _p in "${pkgname[@]}"; do
     }"
 done
 
-b2sums=('b744477e1202ae7c63020645fdd923625da6edd2bde61d01d9c7755e6d9628fc3fb00e615261f02a5c503d5c890cb9f8e1e9f068aea7ed01fda45b2d64e7216a'
+b2sums=('15dfdf1513a06b087a9f8b9fee00a1e48fa95ee80caefc55d646a14cab1d0050a7c0c0209164fa42d79d3281143e559b148bc7c623a85328d3dd70aa01579c90'
         'SKIP'
         'e21485bd3d917be15837eb51ddb9aeb4a0df5fb7b18ccbf1d520aff2340833935e441f634e4ae8482a21ff38a9dec9f320bec3459aedf15087909b6eb2cff7db'
         'c992567bd7dd8553432be496ffa1c17e2f5ebe9c7edb51945cf977e1b742dd6517c210d8843bb82744ca705efd07f8027cd7dde41b50215ebd707a34aa81462e')
